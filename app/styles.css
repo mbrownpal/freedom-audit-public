@@ -604,3 +604,93 @@ html, body { background: var(--bg); margin: 0; padding: 0; }
  flex-wrap: wrap;
  margin-top: 36px;
 }
+
+/* Additional styles for assessment page structure */
+.fa-question-panel {
+  animation: fa-slide-in 0.4s ease;
+  padding-top: 28px;
+}
+
+.fa-question-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.fa-question-section {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin-bottom: 20px;
+}
+
+.fa-question-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(20px, 2.6vw, 24px);
+  line-height: 1.45;
+  color: var(--text);
+  margin: 0 0 22px;
+}
+
+.fa-question-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 36px;
+  gap: 16px;
+}
+
+.fa-btn-secondary {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 16px 18px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.fa-btn-secondary:hover:not(:disabled) {
+  background: transparent;
+  color: var(--copper);
+}
+
+.fa-loading {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
+}
+
+.fa-resume-prompt {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.fa-generating-spinner {
+  width: 88px;
+  height: 88px;
+  border: 1px solid var(--copper);
+  border-radius: 50%;
+  margin: 0 auto 36px;
+  position: relative;
+  animation: fa-pulse 2.6s ease-in-out infinite;
+}
+
+.fa-generating-text {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(22px, 3vw, 28px);
+  font-style: italic;
+  color: var(--text);
+}
+
+.fa-report {
+  padding: 48px 28px;
+}
+
+.fa-report-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
