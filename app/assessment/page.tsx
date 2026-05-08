@@ -3,7 +3,7 @@
 import { useState, useReducer, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AutoTextarea, Paragraphs, GapVisual } from '../components';
-import '../assessment.css';
+import '../styles.css';
 
 // Questions from prototype
 const QUESTIONS = [
