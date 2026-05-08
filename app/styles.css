@@ -694,3 +694,16 @@ html, body { background: var(--bg); margin: 0; padding: 0; }
   max-width: 720px;
   margin: 0 auto;
 }
+
+/* Override fa-question-inner to match fa-shell layout */
+.fa-question-panel .fa-question-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 28px 120px;
+}
+
+@media (max-width: 640px) {
+  .fa-question-panel .fa-question-inner {
+    padding: 28px 20px 96px;
+  }
+}
