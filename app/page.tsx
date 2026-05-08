@@ -1,746 +1,224 @@
 'use client';
 
-import { useState, useReducer, useEffect, useRef, useMemo, useCallback } from 'react';
+import { FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import './styles.css';
 
-// Questions from prototype
-const QUESTIONS = [
-  { section: 'Where You Are Now', question: "How would you describe yourself and the season of life you're in right now?" },
-  { section: 'Where You Are Now', question: "If we fast-forward 12 months and this next chapter has gone really well, what's different about your life?" },
-  { section: 'Freedom of Health', question: "On a scale of 0-10, how do you feel about your health right now? What's working, and what's not where you'd like it to be?" },
-  { section: 'Freedom of Relationships', question: 'On a scale of 0-10, how would you rate your relationships right now? Think about your partner, your family, your closest friends, and your broader community. Where do you feel most yourself, and where are you still guarding?' },
-  { section: 'Freedom of Relationships', question: "Where in your life do you feel most free to be exactly who you are without editing? Where do you feel like you're still wearing a version of yourself that isn't quite true?" },
-  { section: 'Freedom of Time', question: 'On a scale of 0-10, how free do you feel with your time? Walk me through how you actually spend your days. How much is chosen versus reactive?' },
-  { section: 'Freedom of Mind', question: 'On a scale of 0-10, how clear and free does your mind feel on most days? Is your work energizing or draining? When during the day do you feel most like yourself?' },
-  { section: 'Freedom of Mind', question: "What beliefs or stories are you carrying that you suspect aren't fully true anymore?" },
-  { section: 'Freedom of Soul', question: 'On a scale of 0-10, how connected do you feel to something greater than yourself? How aligned is your work with a deeper sense of purpose? What does that even look like for you?' },
-  { section: 'Financial Foundation', question: "On a scale of 0-10, how do you rate your financial situation? What's going well, and what's not where you'd like it to be?" },
-  { section: 'Financial Foundation', question: "What does 'enough' look like for you, specifically? Have you ever actually defined the number?" },
-  { section: 'Your Inner Landscape', question: 'When something stressful or painful happens, what goes on inside you? How does it hit, how long does it stick around, and how do you move through it?' },
-  { section: 'Your Inner Landscape', question: "When you want something you don't have, how does that land? Does it drive you, distract you, or sit with you in some other way?" },
-  { section: 'Your Inner Landscape', question: "How much of your day are you genuinely present versus running on autopilot or stuck in your head about what's next?" },
-  { section: 'Your Inner Landscape', question: "When everything gets quiet and you're really honest with yourself, what's the undercurrent? What's running in the background?" },
-  { section: 'Where It Comes From', question: "What did you witness from your father's relationship to work, money, and life? How does that show up in you today?" },
-  { section: 'Where It Comes From', question: "What did you witness from your mother's relationship to work, money, and life? How does that show up in you today?" },
-  { section: 'Where It Comes From', question: "What's a pattern you've identified in yourself that you've tried to change but can't quite shake? What keeps it in place?" },
-  { section: 'Where It Comes From', question: 'What role did you play in your family growing up? Are you still playing some version of it?' },
-  { section: 'Radical Honesty', question: 'What are you pretending not to know about your life right now?' },
-  { section: 'Radical Honesty', question: 'What are you most afraid of losing if you actually got everything you say you want?' },
-  { section: 'Radical Honesty', question: "If money, status, and other people's opinions were completely off the table, what would you do with the next ten years of your life?" },
-];
+export default function LandingPage() {
+  const router = useRouter();
 
-const TOTAL_QUESTIONS = QUESTIONS.length;
-
-const GEN_MESSAGES = [
-  'Mapping your inner terrain…',
-  'Reading between the lines…',
-  'Synthesizing patterns…',
-  'Calculating your Alignment Score…',
-  'Generating your report…',
-];
-
-const initialState = {
-  mode: 'welcome' as 'welcome' | 'assessment' | 'generating' | 'report',
-  clientName: '',
-  clientEmail: '',
-  currentQuestion: 0,
-  answers: {} as Record<number, string>,
-  report: null as any,
-  error: null as string | null,
-};
-
-type State = typeof initialState;
-type Action =
-  | { type: 'SET_NAME'; value: string }
-  | { type: 'SET_EMAIL'; value: string }
-  | { type: 'BEGIN' }
-  | { type: 'ANSWER'; index: number; value: string }
-  | { type: 'NEXT' }
-  | { type: 'BACK' }
-  | { type: 'GENERATE' }
-  | { type: 'REPORT_SUCCESS'; report: any }
-  | { type: 'REPORT_ERROR'; error: string | null }
-  | { type: 'RESTART' }
-  | { type: 'HYDRATE'; payload: Partial<State> };
-
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'SET_NAME':
-      return { ...state, clientName: action.value };
-    case 'SET_EMAIL':
-      return { ...state, clientEmail: action.value };
-    case 'BEGIN':
-      return { ...state, mode: 'assessment', currentQuestion: 0 };
-    case 'ANSWER':
-      return {
-        ...state,
-        answers: { ...state.answers, [action.index]: action.value },
-      };
-    case 'NEXT':
-      if (state.currentQuestion >= TOTAL_QUESTIONS - 1) return state;
-      return { ...state, currentQuestion: state.currentQuestion + 1 };
-    case 'BACK':
-      if (state.currentQuestion <= 0) return state;
-      return { ...state, currentQuestion: state.currentQuestion - 1 };
-    case 'GENERATE':
-      return { ...state, mode: 'generating', error: null };
-    case 'REPORT_SUCCESS':
-      return { ...state, mode: 'report', report: action.report, error: null };
-    case 'REPORT_ERROR':
-      return { ...state, error: action.error };
-    case 'RESTART':
-      return initialState;
-    case 'HYDRATE':
-      return {
-        ...initialState,
-        ...action.payload,
-        error: null,
-        mode: action.payload.mode === 'generating' ? 'assessment' : (action.payload.mode || 'welcome'),
-      };
-    default:
-      return state;
-  }
-}
-
-export default function FreedomAudit() {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  const [resumePrompt, setResumePrompt] = useState<Partial<State> | null>(null);
-
-  // Load saved state on mount
-  useEffect(() => {
-    if (!state.clientEmail) return;
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     
-    fetch('/api/assessment/load', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: state.clientEmail }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.data && Object.keys(data.data.answers || {}).length > 0) {
-          setResumePrompt(data.data);
-        }
-      })
-      .catch(console.error);
-  }, [state.clientEmail]);
-
-  // Auto-save
-  useEffect(() => {
-    if (state.mode === 'generating' || !state.clientEmail) return;
-
-    const saveData = {
-      email: state.clientEmail,
-      clientName: state.clientName,
-      currentQuestion: state.currentQuestion,
-      answers: state.answers,
-      report: state.report,
-      status: state.mode === 'report' ? 'complete' : 'in_progress',
-    };
-
-    fetch('/api/assessment/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(saveData),
-    }).catch(console.error);
-  }, [state, state.mode]);
-
-  const runGeneration = useCallback(async () => {
-    try {
-      const answersArray = QUESTIONS.map((q, i) => ({
-        section: q.section,
-        question: q.question,
-        answer: state.answers[i] || '',
-      }));
-
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientName: state.clientName,
-          answers: answersArray,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Generation failed');
-      }
-
-      dispatch({ type: 'REPORT_SUCCESS', report: data.report });
-
-      // Send email with error handling
-      try {
-        const emailResponse = await fetch('/api/send-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientName: state.clientName,
-            clientEmail: state.clientEmail,
-            report: data.report,
-            answers: answersArray,
-          }),
-        });
-        
-        if (emailResponse.ok) {
-          console.log('✅ Email sent successfully');
-        } else {
-          const errorData = await emailResponse.json().catch(() => ({}));
-          console.error('❌ Email send failed:', errorData);
-        }
-      } catch (emailError) {
-        console.error('❌ Email request failed:', emailError);
-      }
-    } catch (err) {
-      console.error('[Generation] Error:', err);
-      dispatch({
-        type: 'REPORT_ERROR',
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    
+    // Store in sessionStorage
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('userName', name);
+      sessionStorage.setItem('userEmail', email);
+      
+      // Route to assessment
+      router.push('/assessment');
     }
-  }, [state.clientName, state.clientEmail, state.answers]);
-
-  useEffect(() => {
-    if (state.mode === 'generating' && !state.error && !state.report) {
-      runGeneration();
-    }
-  }, [state.mode, runGeneration, state.error, state.report]);
-
-  const handleComplete = () => {
-    dispatch({ type: 'GENERATE' });
-  };
-
-  const handleRetry = () => {
-    dispatch({ type: 'REPORT_ERROR', error: null });
-    runGeneration();
-  };
-
-  const handleResume = () => {
-    if (!resumePrompt) return;
-    dispatch({ type: 'HYDRATE', payload: resumePrompt });
-    setResumePrompt(null);
-  };
-
-  const handleDiscard = () => {
-    setResumePrompt(null);
-  };
-
-  const handleRestart = () => {
-    dispatch({ type: 'RESTART' });
   };
 
   return (
-    <div className="fa-root">
-      {resumePrompt && (
-        <ResumePrompt
-          saved={resumePrompt}
-          onResume={handleResume}
-          onDiscard={handleDiscard}
-        />
-      )}
-
-      {!resumePrompt && state.mode === 'welcome' && (
-        <Welcome
-          clientName={state.clientName}
-          clientEmail={state.clientEmail}
-          onName={(v: string) => dispatch({ type: 'SET_NAME', value: v })}
-          onEmail={(v: string) => dispatch({ type: 'SET_EMAIL', value: v })}
-          onBegin={() => dispatch({ type: 'BEGIN' })}
-        />
-      )}
-
-      {!resumePrompt && state.mode === 'assessment' && (
-        <Assessment
-          state={state}
-          dispatch={dispatch}
-          onComplete={handleComplete}
-        />
-      )}
-
-      {!resumePrompt && state.mode === 'generating' && (
-        <Generating error={state.error} onRetry={handleRetry} />
-      )}
-
-      {!resumePrompt && state.mode === 'report' && state.report && (
-        <Report
-          clientName={state.clientName}
-          report={state.report}
-          onRestart={handleRestart}
-        />
-      )}
-    </div>
-  );
-}
-
-
-// UI Component Implementations
-
-function Welcome({ clientName, clientEmail, onName, onEmail, onBegin }: any) {
-  const canBegin = clientName.trim().length > 0 && clientEmail.trim().length > 0;
-  return (
-    <div className="fa-welcome">
-      <div className="fa-welcome-inner">
-        <div className="fa-eyebrow">Unbreakable Wealth · Private Intake</div>
-        <h1>The <em>Freedom</em> Audit</h1>
-        <p className="lede">A comprehensive map of where you actually stand.</p>
-        <div className="fa-rule" />
-        <p className="body">
-          This audit maps your life across the dimensions that actually determine freedom. 
-          It takes about 60–75 minutes. The deeper you go, the more useful your results will be. 
-          If you prefer to talk rather than type, use voice-to-text on your device keyboard.
-        </p>
-
-        <div className="fa-input-grid">
-          <div className="fa-input-col">
-            <span className="fa-input-label">First Name</span>
-            <input
-              className="fa-name-input"
-              type="text"
-              value={clientName}
-              onChange={(e) => onName(e.target.value)}
-              placeholder="First name"
-              autoComplete="given-name"
-            />
-          </div>
-          <div className="fa-input-col">
-            <span className="fa-input-label">Email Address</span>
-            <input
-              className="fa-name-input"
-              type="email"
-              value={clientEmail}
-              onChange={(e) => onEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
-          </div>
-        </div>
-
-        <div className="meta">{TOTAL_QUESTIONS} questions · 10 sections</div>
-        <button className="fa-btn" onClick={onBegin} disabled={!canBegin}>Begin</button>
+    <div className="wrap">
+      {/* Topbar */}
+      <div className="topbar">
+        <div className="mark">Unbreakable Wealth</div>
+        <div className="right">The Freedom Audit <span className="dot"></span> Open Now</div>
       </div>
-    </div>
-  );
-}
 
-function ProgressBar({ current, total, sectionTitle }: any) {
-  const pct = ((current + 1) / total) * 100;
-  return (
-    <div className="fa-progress-wrap">
-      <div className="fa-progress-inner">
-        <div className="fa-progress-meta">
-          <span className="fa-progress-section">{sectionTitle}</span>
-          <span className="fa-progress-count">{current + 1} of {total}</span>
+      {/* Hero */}
+      <header className="hero">
+        <div className="fade overline">
+          <span className="bar"></span>
+          <span>A Diagnostic for the Already Successful</span>
+          <span className="bar"></span>
         </div>
-        <div className="fa-progress-track">
-          <div className="fa-progress-fill" style={{ width: `${pct}%` }} />
-        </div>
+        <h1 className="fade title">The <span className="freedom">Freedom</span> Audit</h1>
+        <p className="fade lede">Every personality test tells you who you are. None of them ask whether you're actually free.</p>
+        <div className="fade rule"></div>
+      </header>
+
+      {/* Above First CTA */}
+      <section className="col">
+        <p className="fade">You already know this, deep down.</p>
+        <p className="fade">You've climbed the mountain of success only to find yourself asking the question that haunts you, the one that shows up late at night when you finally stop long enough:</p>
+      </section>
+
+      <div className="pq fade"><q>Is this really it?</q></div>
+
+      <section className="col">
+        <p className="fade">You don't need more <em className="italic">insight</em>. Insight fails because it feels productive, but it gives you an out: <em className="italic">"This is just the way I am."</em></p>
+        <p className="fade">Optimization is a different trap. The endless quest to optimize assumes that if you just fix your mindset, or your habits, or install a new morning routine, you'll be better. But you've tried all those things, and you always find the same answer. It doesn't work.</p>
+        <p className="fade heavy">You've watched this cycle long enough to know something deeper is running.</p>
+      </section>
+
+      <div className="thesis fade">
+        <span className="thesis-rule"></span>
+        <p>The Freedom Audit reveals the <em>hidden operating structure</em> underneath the game.</p>
+        <span className="thesis-rule"></span>
       </div>
-    </div>
-  );
-}
 
-function AutoTextarea({ value, onChange, placeholder }: any) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+      <section className="col">
+        <p className="fade">You'll examine six dimensions of your life through 22 open-ended questions that can't be gamed like the standard multiple-choice. You don't fit in a box, so neither does this assessment.</p>
+        <p className="fade">You'll get an extensive personalized report that connects patterns across your life you've sensed independently but never seen mapped together.</p>
+      </section>
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.max(el.scrollHeight, 160) + 'px';
-  }, [value]);
-
-  return (
-    <textarea
-      ref={ref}
-      className="fa-textarea"
-      rows={5}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-    />
-  );
-}
-
-function Assessment({ state, dispatch, onComplete }: any) {
-  const current = QUESTIONS[state.currentQuestion];
-  const value = state.answers[state.currentQuestion] || '';
-  const canAdvance = value.trim().length >= 10;
-  const isLast = state.currentQuestion === TOTAL_QUESTIONS - 1;
-
-  return (
-    <>
-      <ProgressBar
-        current={state.currentQuestion}
-        total={TOTAL_QUESTIONS}
-        sectionTitle={current.section}
-      />
-      <div className="fa-shell">
-        <div className="fa-question">
-          <div className="fa-section-label">{current.section}</div>
-          <h2 className="fa-prompt">{current.question}</h2>
-
-          <AutoTextarea
-            value={value}
-            onChange={(v: string) =>
-              dispatch({ type: 'ANSWER', index: state.currentQuestion, value: v })
-            }
-            placeholder="Take your time…"
-          />
-
-          <div className="fa-hint">Tip: use voice-to-text for a more natural response</div>
-
-          <div className="fa-actions">
-            <button
-              className="fa-btn fa-btn-ghost"
-              onClick={() => dispatch({ type: 'BACK' })}
-              disabled={state.currentQuestion === 0}
-            >
-              ← Back
-            </button>
-            <span className="spacer" />
-            <button
-              className="fa-btn"
-              onClick={() => {
-                if (isLast) onComplete();
-                else dispatch({ type: 'NEXT' });
-              }}
-              disabled={!canAdvance}
-            >
-              {isLast ? 'Complete Audit' : 'Next →'}
-            </button>
-          </div>
+      <section className="reveal">
+        <div className="fade pre">The result will reveal the truth you've been circling, codified by a single metric:</div>
+        <div className="fade metric">
+          <div className="label">Your</div>
+          <div className="name">Alignment Score</div>
         </div>
-      </div>
-    </>
-  );
-}
+        <div className="fade post">This is the precise gap between the life you say you want and the one you're actually living.</div>
+      </section>
 
-function Generating({ error, onRetry }: any) {
-  const [idx, setIdx] = useState(0);
+      <section className="col">
+        <p className="fade">The answers may be uncomfortable.</p>
+        <p className="fade lift">But once you see the architecture underneath the game, the game changes entirely.</p>
+        <p className="fade aside" style={{marginTop: '32px'}}>The entire process takes 30–45 minutes. Radical self-honesty required.</p>
+        <p className="fade aside">For best results, use voice-to-text to speak your answers out loud. Don't edit. Just be real.</p>
+      </section>
 
-  useEffect(() => {
-    if (error) return;
-    const interval = setInterval(() => {
-      setIdx((i) => (i + 1) % GEN_MESSAGES.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [error]);
-
-  return (
-    <div className="fa-generating">
-      <div className="fa-generating-inner">
-        <div className="fa-orb" />
-        {error ? (
-          <>
-            <div className="fa-gen-title">Something didn't land.</div>
-            <div className="fa-gen-sub">Try again</div>
-            <div className="fa-error">
-              <div className="title">Generation Error</div>
-              <div className="body">{error}</div>
-              <button className="fa-btn" onClick={onRetry}>Retry</button>
+      {/* Primary CTA */}
+      <section className="cta-block">
+        <form className="fade cta-form" id="landing-form" onSubmit={handleSubmit}>
+          <div className="form-fields">
+            <div className="field">
+              <label htmlFor="user-name">First Name</label>
+              <input type="text" id="user-name" name="name" placeholder="Your name" autoComplete="given-name" required />
             </div>
-          </>
-        ) : (
-          <>
-            <div className="fa-gen-title">{GEN_MESSAGES[idx]}</div>
-            <div className="fa-gen-sub">One moment</div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Paragraphs({ text }: { text: string }) {
-  if (!text) return null;
-  const chunks = String(text)
-    .split(/\n{2,}/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (chunks.length === 0) return <p>{String(text)}</p>;
-  return (
-    <>
-      {chunks.map((c, i) => (
-        <p key={i}>{c}</p>
-      ))}
-    </>
-  );
-}
-
-function GapVisual({ vision, reality }: { vision: string; reality: string }) {
-  const v = Number(vision);
-  const r = Number(reality);
-  const gap = Math.max(0, v - r);
-  const visionPct = Math.max(0, Math.min(100, (v / 10) * 100));
-  const realityPct = Math.max(0, Math.min(100, (r / 10) * 100));
-  const [leftPct, rightPct] =
-    realityPct <= visionPct ? [realityPct, visionPct] : [visionPct, realityPct];
-
-  return (
-    <div className="fa-gap-visual">
-      <div className="fa-gap-grid">
-        <div className="fa-gap-cell">
-          <div className="label">Your Vision</div>
-          <div className="value">{v.toFixed(1)}</div>
-        </div>
-        <div className="fa-gap-cell primary">
-          <div className="label">The Gap</div>
-          <div className="value">{gap.toFixed(1)}</div>
-        </div>
-        <div className="fa-gap-cell">
-          <div className="label">Your Reality</div>
-          <div className="value">{r.toFixed(1)}</div>
-        </div>
-      </div>
-
-      <div className="fa-gap-bar-wrap">
-        <div className="fa-gap-bar">
-          <div
-            className="fa-gap-bar-fill"
-            style={{ left: `${leftPct}%`, width: `${Math.max(0, rightPct - leftPct)}%` }}
-          />
-          <div className="fa-gap-bar-reality" style={{ left: `${realityPct}%` }} />
-          <div className="fa-gap-bar-marker-label" style={{ left: `${realityPct}%` }}>
-            Reality
+            <div className="field">
+              <label htmlFor="user-email">Email Address</label>
+              <input type="email" id="user-email" name="email" placeholder="you@example.com" autoComplete="email" required />
+            </div>
           </div>
-          <div className="fa-gap-bar-vision" style={{ left: `${visionPct}%` }} />
-          <div className="fa-gap-bar-marker-label" style={{ left: `${visionPct}%`, top: 44 }}>
-            Vision
+          <button type="submit" className="cta-btn">Take the Freedom Audit</button>
+        </form>
+      </section>
+
+      <div className="below-divider"><span className="fade line"></span></div>
+
+      <div className="pillar">
+        <span className="fade eyebrow"><span className="num">I</span>What you'll examine</span>
+        <h2 className="fade">Six dimensions of your <em>felt freedom</em>.</h2>
+        <p className="fade subhead">The places where freedom is actually lived — or quietly forfeited — measured in your own words.</p>
+      </div>
+
+      <section className="dimensions">
+        <div className="dim-grid">
+          <div className="dim fade">
+            <span className="roman">I · Health</span>
+            <h3>Your <em>Vessel</em></h3>
+            <p>Whether your body is built to sustain the life you have, or the life you're moving toward. The signals you've trained yourself to override.</p>
+          </div>
+          <div className="dim fade">
+            <span className="roman">II · Relationships</span>
+            <h3>Your <em>Mirrors</em></h3>
+            <p>The people whose presence you optimize for. The truths you've learned not to say out loud. What that costs you, compounding.</p>
+          </div>
+          <div className="dim fade">
+            <span className="roman">III · Time</span>
+            <h3>Your <em>Sovereignty</em></h3>
+            <p>Whose calendar your week is actually running on. The hours you can truly direct versus the ones quietly conscripted.</p>
+          </div>
+          <div className="dim fade">
+            <span className="roman">IV · Mind</span>
+            <h3>Your <em>Operating System</em></h3>
+            <p>The old programs still running underneath the new awareness. The judgments louder than your clarity. The doubt that lives next to the knowing.</p>
+          </div>
+          <div className="dim fade">
+            <span className="roman">V · Soul</span>
+            <h3>Your <em>North Star</em></h3>
+            <p>Whether the work you're doing now would still matter on the day none of it can be measured. The thing you'd defend if everything else were taken.</p>
+          </div>
+          <div className="dim fade">
+            <span className="roman">VI · Financial</span>
+            <h3>Your <em>Battery</em></h3>
+            <p>Money is the resource that fuels freedom. The real question is whether you're actually converting.</p>
           </div>
         </div>
-        <div className="fa-gap-scale">
-          <span>0</span>
-          <span>5</span>
-          <span>10</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+      </section>
 
-function TabPanel({ id, report }: any) {
-  switch (id) {
-    case 'metatype':
-      return (
-        <div className="fa-tab-panel">
-          <div className="metatype-title">{report.metatype_name}</div>
-          <Paragraphs text={report.metatype_description} />
-        </div>
-      );
-    case 'health':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Freedom of Health</h2>
-          <Paragraphs text={report.pillar_health} />
-        </div>
-      );
-    case 'relationships':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Freedom of Relationships</h2>
-          <Paragraphs text={report.pillar_relationships} />
-        </div>
-      );
-    case 'time':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Freedom of Time</h2>
-          <Paragraphs text={report.pillar_time} />
-        </div>
-      );
-    case 'mind':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Freedom of Mind</h2>
-          <Paragraphs text={report.pillar_mind} />
-        </div>
-      );
-    case 'soul':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Freedom of Soul</h2>
-          <Paragraphs text={report.pillar_soul} />
-        </div>
-      );
-    case 'finances':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Financial Foundation</h2>
-          <Paragraphs text={report.pillar_finances} />
-        </div>
-      );
-    case 'inner':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Your Inner State</h2>
-          <Paragraphs text={report.inner_state} />
-          <div className="fa-divider" />
-          <Paragraphs text={report.patterns} />
-        </div>
-      );
-    case 'gap':
-      return (
-        <div className="fa-tab-panel">
-          <h2>The Gap</h2>
-          <GapVisual
-            vision={report.alignment_score_vision}
-            reality={report.alignment_score_reality}
-          />
-          <Paragraphs text={report.the_gap_narrative} />
-        </div>
-      );
-    case 'strategy':
-      return (
-        <div className="fa-tab-panel">
-          <h2>Your Strategy</h2>
-          <Paragraphs text={report.strategy} />
-        </div>
-      );
-    default:
-      return null;
-  }
-}
-
-function Report({ clientName, report, onRestart }: any) {
-  const [active, setActive] = useState('metatype');
-  const [emailStatus, setEmailStatus] = useState<'sending' | 'sent' | 'error' | null>(null);
-
-  const handleDownload = () => {
-    // Create HTML content for download
-    const htmlContent = generateReportHTML(clientName, report);
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `freedom-audit-${clientName.toLowerCase().replace(/\s+/g, '-')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const generateReportHTML = (name: string, rpt: any) => {
-    const vision = Number(rpt.alignment_score_vision) || 0;
-    const reality = Number(rpt.alignment_score_reality) || 0;
-    const gap = Math.max(0, vision - reality).toFixed(1);
-    
-    return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Freedom Audit - ${name}</title>
-<style>* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: Georgia, 'Times New Roman', serif; color: #1a1815; background: #fff; line-height: 1.8; padding: 80px 64px; max-width: 800px; margin: 0 auto; }
-.cover { text-align: center; padding: 120px 0; border-bottom: 2px solid #B87333; margin-bottom: 80px; }
-.eyebrow { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; letter-spacing: 2px; color: #B87333; margin-bottom: 40px; }
-h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
-.client-name { font-style: italic; font-size: 20px; color: #B87333; margin-top: 40px; }
-.date { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #655d52; margin-top: 20px; }
-.section { page-break-inside: avoid; margin-bottom: 80px; }
-.section-title { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 2px; color: #B87333; margin-bottom: 12px; }
-.section h2 { font-size: 32px; font-weight: 400; margin-bottom: 24px; }
-.metatype-name { font-style: italic; color: #B87333 !important; font-size: 36px !important; }
-.gap-scores { font-size: 13px; color: #655d52; text-align: center; margin-bottom: 32px; padding: 16px; background: #f7f2ea; border-radius: 4px; }
-.section-content p { font-size: 16px; line-height: 1.8; margin-bottom: 24px; }
-@media print { body { padding: 40px; } .section { page-break-before: always; } }</style></head><body>
-<div class="cover"><div class="eyebrow">THE FREEDOM AUDIT</div><h1>Your Report</h1>
-<div class="client-name">Prepared for ${name}</div><div class="date">${new Date().toLocaleDateString()}</div></div>
-<div class="section"><div class="section-title">YOUR METATYPE</div><h2 class="metatype-name">${rpt.metatype_name}</h2>
-<div class="section-content">${rpt.metatype_description.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FREEDOM OF HEALTH</div><h2>Freedom of Health</h2>
-<div class="section-content">${rpt.pillar_health.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FREEDOM OF RELATIONSHIPS</div><h2>Freedom of Relationships</h2>
-<div class="section-content">${rpt.pillar_relationships.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FREEDOM OF TIME</div><h2>Freedom of Time</h2>
-<div class="section-content">${rpt.pillar_time.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FREEDOM OF MIND</div><h2>Freedom of Mind</h2>
-<div class="section-content">${rpt.pillar_mind.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FREEDOM OF SOUL</div><h2>Freedom of Soul</h2>
-<div class="section-content">${rpt.pillar_soul.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">FINANCIAL FOUNDATION</div><h2>Financial Foundation</h2>
-<div class="section-content">${rpt.pillar_finances.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">YOUR INNER STATE</div><h2>Your Inner State</h2>
-<div class="section-content">${(rpt.inner_state + '\n\n' + rpt.patterns).split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">THE GAP</div><h2>The Gap</h2>
-<div class="gap-scores">Vision: ${vision.toFixed(1)} | Gap: ${gap} | Reality: ${reality.toFixed(1)}</div>
-<div class="section-content">${rpt.the_gap_narrative.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-<div class="section"><div class="section-title">YOUR STRATEGY</div><h2>Your Strategy</h2>
-<div class="section-content">${rpt.strategy.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
-</body></html>`;
-  };
-
-  const TABS = [
-    { id: 'metatype', label: 'Your Metatype' },
-    { id: 'health', label: 'Health' },
-    { id: 'relationships', label: 'Relationships' },
-    { id: 'time', label: 'Time' },
-    { id: 'mind', label: 'Mind' },
-    { id: 'soul', label: 'Soul' },
-    { id: 'finances', label: 'Finances' },
-    { id: 'inner', label: 'Inner State' },
-    { id: 'gap', label: 'The Gap' },
-    { id: 'strategy', label: 'Strategy' },
-  ];
-
-  return (
-    <div className="fa-shell">
-      <div className="fa-report-head">
-        <div className="eyebrow">The Freedom Audit</div>
-        <h1>Your Report</h1>
-        <div className="fa-rule" />
-        <div className="name">Prepared for {clientName}</div>
+      <div className="pillar" style={{marginTop: '120px'}}>
+        <span className="fade eyebrow"><span className="num">II</span>What you'll receive</span>
+        <h2 className="fade">A report written <em>specifically about you</em>.</h2>
+        <p className="fade subhead">Generated from your own answers, cross-referenced across all six dimensions, and delivered as three artifacts.</p>
       </div>
 
-      <div className="fa-tabs">
-        <div className="fa-tabs-scroll">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`fa-tab ${active === t.id ? 'active' : ''}`}
-              onClick={() => setActive(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <TabPanel id={active} report={report} />
-
-      <div className="fa-report-footer">
-        <div className="mark">End of Report · Unbreakable Wealth</div>
-        {emailStatus === 'sent' && (
-          <div style={{ color: '#10b981', marginBottom: '16px', textAlign: 'center' }}>
-            ✓ Report emailed successfully
+      <section className="receive">
+        <div className="receive-grid">
+          <div className="deliverable fade">
+            <span className="num">ONE</span>
+            <h4>Your Metatype</h4>
+            <div className="title">A name for the <em>shape of your life</em>.</div>
+            <p>The pattern your answers reveal — the specific way your gifts and constraints are currently organized. The structural logic of how you're living right now.</p>
+            <div className="sample">
+              <span className="lab">Sample · Anonymized</span>
+              You are someone who has touched real success and knows you can create again, but is living in a carefully managed container that both protects and constrains you…
+            </div>
           </div>
-        )}
-        {emailStatus === 'error' && (
-          <div style={{ color: '#ef4444', marginBottom: '16px', textAlign: 'center' }}>
-            Email delivery failed. You can still download your report below.
-          </div>
-        )}
-        <div className="actions">
-          <button className="fa-btn" onClick={handleDownload}>Download Report</button>
-          <button className="fa-btn fa-btn-ghost" onClick={onRestart}>Start Over</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function ResumePrompt({ saved, onResume, onDiscard }: any) {
-  const name = saved.clientName || 'you';
-  return (
-    <div className="fa-welcome">
-      <div className="fa-welcome-inner">
-        <div className="fa-eyebrow">Welcome Back</div>
-        <h1>Resume where you left off</h1>
-        <div className="fa-rule" />
-        <p className="body">
-          You have a saved assessment for {name}. Continue where you left off, or start fresh.
-        </p>
-        <div className="fa-resume-actions">
-          <button className="fa-btn" onClick={onResume}>Resume Audit</button>
-          <button className="fa-btn fa-btn-ghost" onClick={onDiscard}>Start Fresh</button>
+          <div className="deliverable fade">
+            <span className="num">TWO</span>
+            <h4>The Gap</h4>
+            <div className="title">Your <em>Alignment Score</em>.</div>
+            <p>The precise distance between the life you say you want and the one your answers describe. Vision and Reality, mapped on a single axis. The number you cannot un-see.</p>
+            <div className="gap-strip">
+              <div className="row"><span>Reality</span><span>Vision</span></div>
+              <div className="gap-bar">
+                <div className="fill" style={{width: '92%'}}></div>
+                <div className="g-span" style={{left: '68%', width: '24%'}}></div>
+                <div className="r-mark" style={{left: '68%'}}></div>
+                <div className="v-mark" style={{left: '92%'}}></div>
+              </div>
+              <div className="legend">
+                <span><span className="num">6.8</span><span className="lab">Reality</span></span>
+                <span><span className="num">2.4</span><span className="lab">Gap</span></span>
+                <span><span className="num">9.2</span><span className="lab">Vision</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div className="deliverable fade">
+            <span className="num">THREE</span>
+            <h4>Your Strategy</h4>
+            <div className="title">The <em>one move</em> that cascades.</div>
+            <p>The specific lever that, once pulled, reorganizes the rest. Drawn directly from the structure of your gap — and written in language you can actually act on.</p>
+            <div className="sample">
+              <span className="lab">Sample · Anonymized</span>
+              The pattern that would cascade most powerfully across everything else is reclaiming full sovereignty without waiting for perfect conditions or complete certainty…
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="closing">
+        <div className="fade kicker">You can keep <em className="italic">circling the question</em>.<br/>Or you can <span className="em">answer it</span>.</div>
+        <form className="fade cta-form" onSubmit={handleSubmit}>
+          <div className="form-fields">
+            <div className="field">
+              <label htmlFor="user-name-2">First Name</label>
+              <input type="text" id="user-name-2" name="name" placeholder="Your name" autoComplete="given-name" required />
+            </div>
+            <div className="field">
+              <label htmlFor="user-email-2">Email Address</label>
+              <input type="email" id="user-email-2" name="email" placeholder="you@example.com" autoComplete="email" required />
+            </div>
+          </div>
+          <button type="submit" className="cta-btn">Take the Freedom Audit</button>
+        </form>
+      </section>
+
+      <footer>
+        <div className="sig">An Unbreakable Wealth Tool <span className="dot"></span> Public Edition <span className="dot"></span> Your Responses Are Confidential</div>
+      </footer>
     </div>
   );
 }
