@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useReducer, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { AutoTextarea, Paragraphs, GapVisual } from '../components';
-import '../styles.css';
+import './styles.css';
 
 // Questions from prototype
 const QUESTIONS = [
@@ -42,7 +40,7 @@ const GEN_MESSAGES = [
 ];
 
 const initialState = {
-  mode: 'assessment' as 'assessment' | 'generating' | 'report',
+  mode: 'welcome' as 'welcome' | 'assessment' | 'generating' | 'report',
   clientName: '',
   clientEmail: '',
   currentQuestion: 0,
@@ -55,6 +53,7 @@ type State = typeof initialState;
 type Action =
   | { type: 'SET_NAME'; value: string }
   | { type: 'SET_EMAIL'; value: string }
+  | { type: 'BEGIN' }
   | { type: 'ANSWER'; index: number; value: string }
   | { type: 'NEXT' }
   | { type: 'BACK' }
@@ -70,6 +69,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, clientName: action.value };
     case 'SET_EMAIL':
       return { ...state, clientEmail: action.value };
+    case 'BEGIN':
+      return { ...state, mode: 'assessment', currentQuestion: 0 };
     case 'ANSWER':
       return {
         ...state,
@@ -94,7 +95,7 @@ function reducer(state: State, action: Action): State {
         ...initialState,
         ...action.payload,
         error: null,
-        mode: action.payload.mode === 'generating' ? 'assessment' : (action.payload.mode || 'assessment'),
+        mode: action.payload.mode === 'generating' ? 'assessment' : (action.payload.mode || 'welcome'),
       };
     default:
       return state;
@@ -102,30 +103,12 @@ function reducer(state: State, action: Action): State {
 }
 
 export default function FreedomAudit() {
-  const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [resumePrompt, setResumePrompt] = useState<Partial<State> | null>(null);
-  const [sessionLoaded, setSessionLoaded] = useState(false);
 
-  // Read from sessionStorage on mount
+  // Load saved state on mount
   useEffect(() => {
-    const name = sessionStorage.getItem('userName');
-    const email = sessionStorage.getItem('userEmail');
-    
-    if (!name || !email) {
-      // No session data → redirect to landing
-      router.push('/');
-      return;
-    }
-    
-    dispatch({ type: 'SET_NAME', value: name });
-    dispatch({ type: 'SET_EMAIL', value: email });
-    setSessionLoaded(true);
-  }, [router]);
-
-  // Load saved state once email is set
-  useEffect(() => {
-    if (!sessionLoaded || !state.clientEmail) return;
+    if (!state.clientEmail) return;
     
     fetch('/api/assessment/load', {
       method: 'POST',
@@ -139,11 +122,11 @@ export default function FreedomAudit() {
         }
       })
       .catch(console.error);
-  }, [sessionLoaded, state.clientEmail]);
+  }, [state.clientEmail]);
 
   // Auto-save
   useEffect(() => {
-    if (state.mode === 'generating' || !state.clientEmail || !sessionLoaded) return;
+    if (state.mode === 'generating' || !state.clientEmail) return;
 
     const saveData = {
       email: state.clientEmail,
@@ -159,7 +142,7 @@ export default function FreedomAudit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(saveData),
     }).catch(console.error);
-  }, [state, state.mode, sessionLoaded]);
+  }, [state, state.mode]);
 
   const runGeneration = useCallback(async () => {
     try {
@@ -174,142 +157,169 @@ export default function FreedomAudit() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientName: state.clientName,
-          clientEmail: state.clientEmail,
           answers: answersArray,
         }),
       });
 
-      if (!res.ok) throw new Error('Generation failed');
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Generation failed');
+      }
+
       dispatch({ type: 'REPORT_SUCCESS', report: data.report });
-    } catch (err: any) {
-      dispatch({ type: 'REPORT_ERROR', error: err.message || 'Something went wrong' });
+
+      // Send email with error handling
+      try {
+        const emailResponse = await fetch('/api/send-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName: state.clientName,
+            clientEmail: state.clientEmail,
+            report: data.report,
+            answers: answersArray,
+          }),
+        });
+        
+        if (emailResponse.ok) {
+          console.log('✅ Email sent successfully');
+        } else {
+          const errorData = await emailResponse.json().catch(() => ({}));
+          console.error('❌ Email send failed:', errorData);
+        }
+      } catch (emailError) {
+        console.error('❌ Email request failed:', emailError);
+      }
+    } catch (err) {
+      console.error('[Generation] Error:', err);
+      dispatch({
+        type: 'REPORT_ERROR',
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
     }
   }, [state.clientName, state.clientEmail, state.answers]);
 
-  const handleNext = useCallback(() => {
-    if (state.currentQuestion >= TOTAL_QUESTIONS - 1) {
-      dispatch({ type: 'GENERATE' });
+  useEffect(() => {
+    if (state.mode === 'generating' && !state.error && !state.report) {
       runGeneration();
-    } else {
-      dispatch({ type: 'NEXT' });
     }
-  }, [state.currentQuestion, runGeneration]);
+  }, [state.mode, runGeneration, state.error, state.report]);
 
-  const handleBack = useCallback(() => {
-    dispatch({ type: 'BACK' });
-  }, []);
+  const handleComplete = () => {
+    dispatch({ type: 'GENERATE' });
+  };
 
-  const handleAnswer = useCallback((value: string) => {
-    dispatch({ type: 'ANSWER', index: state.currentQuestion, value });
-  }, [state.currentQuestion]);
+  const handleRetry = () => {
+    dispatch({ type: 'REPORT_ERROR', error: null });
+    runGeneration();
+  };
 
-  const handleRestart = useCallback(() => {
-    if (confirm('Are you sure? This will clear all your answers and start over.')) {
-      sessionStorage.removeItem('userName');
-      sessionStorage.removeItem('userEmail');
-      router.push('/');
-    }
-  }, [router]);
-
-  const handleResume = useCallback(() => {
-    if (resumePrompt) {
-      dispatch({ type: 'HYDRATE', payload: resumePrompt });
-      setResumePrompt(null);
-    }
-  }, [resumePrompt]);
-
-  const handleStartFresh = useCallback(() => {
+  const handleResume = () => {
+    if (!resumePrompt) return;
+    dispatch({ type: 'HYDRATE', payload: resumePrompt });
     setResumePrompt(null);
-  }, []);
+  };
 
-  if (!sessionLoaded) {
-    return (
-      <div className="fa-root">
-        <div className="fa-loading">Loading...</div>
-      </div>
-    );
-  }
+  const handleDiscard = () => {
+    setResumePrompt(null);
+  };
 
-  if (resumePrompt) {
-    return (
-      <div className="fa-root">
-        <div className="fa-resume-prompt">
-          <h2>Welcome back, {state.clientName}!</h2>
-          <p>You have a saved assessment in progress.</p>
-          <div className="fa-resume-actions">
-            <button className="fa-btn" onClick={handleResume}>
-              Resume
-            </button>
-            <button className="fa-btn-secondary" onClick={handleStartFresh}>
-              Start Fresh
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleRestart = () => {
+    dispatch({ type: 'RESTART' });
+  };
 
-  if (state.mode === 'assessment') {
-    const q = QUESTIONS[state.currentQuestion];
-    const answer = state.answers[state.currentQuestion] || '';
-    const canProceed = answer.trim().length > 0;
-
-    return (
-      <div className="fa-root">
-        <ProgressBar
-          current={state.currentQuestion}
-          total={TOTAL_QUESTIONS}
-          sectionTitle={q.section}
+  return (
+    <div className="fa-root">
+      {resumePrompt && (
+        <ResumePrompt
+          saved={resumePrompt}
+          onResume={handleResume}
+          onDiscard={handleDiscard}
         />
-        <div className="fa-question-panel">
-          <div className="fa-question-inner">
-            <div className="fa-question-section">{q.section}</div>
-            <div className="fa-question-text">{q.question}</div>
-            <AutoTextarea
-              value={answer}
-              onChange={handleAnswer}
-              placeholder="Type your answer here…"
-              id={`q-${state.currentQuestion}`}
-              autoFocus
+      )}
+
+      {!resumePrompt && state.mode === 'welcome' && (
+        <Welcome
+          clientName={state.clientName}
+          clientEmail={state.clientEmail}
+          onName={(v: string) => dispatch({ type: 'SET_NAME', value: v })}
+          onEmail={(v: string) => dispatch({ type: 'SET_EMAIL', value: v })}
+          onBegin={() => dispatch({ type: 'BEGIN' })}
+        />
+      )}
+
+      {!resumePrompt && state.mode === 'assessment' && (
+        <Assessment
+          state={state}
+          dispatch={dispatch}
+          onComplete={handleComplete}
+        />
+      )}
+
+      {!resumePrompt && state.mode === 'generating' && (
+        <Generating error={state.error} onRetry={handleRetry} />
+      )}
+
+      {!resumePrompt && state.mode === 'report' && state.report && (
+        <Report
+          clientName={state.clientName}
+          report={state.report}
+          onRestart={handleRestart}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// UI Component Implementations
+
+function Welcome({ clientName, clientEmail, onName, onEmail, onBegin }: any) {
+  const canBegin = clientName.trim().length > 0 && clientEmail.trim().length > 0;
+  return (
+    <div className="fa-welcome">
+      <div className="fa-welcome-inner">
+        <div className="fa-eyebrow">Unbreakable Wealth · Private Intake</div>
+        <h1>The <em>Freedom</em> Audit</h1>
+        <p className="lede">A comprehensive map of where you actually stand.</p>
+        <div className="fa-rule" />
+        <p className="body">
+          This audit maps your life across the dimensions that actually determine freedom. 
+          It takes about 60–75 minutes. The deeper you go, the more useful your results will be. 
+          If you prefer to talk rather than type, use voice-to-text on your device keyboard.
+        </p>
+
+        <div className="fa-input-grid">
+          <div className="fa-input-col">
+            <span className="fa-input-label">First Name</span>
+            <input
+              className="fa-name-input"
+              type="text"
+              value={clientName}
+              onChange={(e) => onName(e.target.value)}
+              placeholder="First name"
+              autoComplete="given-name"
             />
-            <div className="fa-question-actions">
-              {state.currentQuestion > 0 && (
-                <button className="fa-btn-secondary" onClick={handleBack}>
-                  Back
-                </button>
-              )}
-              <button
-                className="fa-btn"
-                onClick={handleNext}
-                disabled={!canProceed}
-              >
-                {state.currentQuestion >= TOTAL_QUESTIONS - 1 ? 'Generate Report' : 'Next'}
-              </button>
-            </div>
+          </div>
+          <div className="fa-input-col">
+            <span className="fa-input-label">Email Address</span>
+            <input
+              className="fa-name-input"
+              type="email"
+              value={clientEmail}
+              onChange={(e) => onEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
           </div>
         </div>
-      </div>
-    );
-  }
 
-  if (state.mode === 'generating') {
-    return (
-      <div className="fa-root">
-        <Generating />
+        <div className="meta">{TOTAL_QUESTIONS} questions · 10 sections</div>
+        <button className="fa-btn" onClick={onBegin} disabled={!canBegin}>Begin</button>
       </div>
-    );
-  }
-
-  if (state.mode === 'report' && state.report) {
-    return (
-      <div className="fa-root">
-        <Report report={state.report} clientName={state.clientName} onRestart={handleRestart} />
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 function ProgressBar({ current, total, sectionTitle }: any) {
@@ -319,9 +329,7 @@ function ProgressBar({ current, total, sectionTitle }: any) {
       <div className="fa-progress-inner">
         <div className="fa-progress-meta">
           <span className="fa-progress-section">{sectionTitle}</span>
-          <span className="fa-progress-count">
-            {current + 1} of {total}
-          </span>
+          <span className="fa-progress-count">{current + 1} of {total}</span>
         </div>
         <div className="fa-progress-track">
           <div className="fa-progress-fill" style={{ width: `${pct}%` }} />
@@ -331,84 +339,406 @@ function ProgressBar({ current, total, sectionTitle }: any) {
   );
 }
 
-function Generating() {
-  const [msgIndex, setMsgIndex] = useState(0);
+function AutoTextarea({ value, onChange, placeholder }: any) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMsgIndex((i) => (i + 1) % GEN_MESSAGES.length);
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.max(el.scrollHeight, 160) + 'px';
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      className="fa-textarea"
+      rows={5}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+    />
+  );
+}
+
+function Assessment({ state, dispatch, onComplete }: any) {
+  const current = QUESTIONS[state.currentQuestion];
+  const value = state.answers[state.currentQuestion] || '';
+  const canAdvance = value.trim().length >= 10;
+  const isLast = state.currentQuestion === TOTAL_QUESTIONS - 1;
+
+  return (
+    <>
+      <ProgressBar
+        current={state.currentQuestion}
+        total={TOTAL_QUESTIONS}
+        sectionTitle={current.section}
+      />
+      <div className="fa-shell">
+        <div className="fa-question">
+          <div className="fa-section-label">{current.section}</div>
+          <h2 className="fa-prompt">{current.question}</h2>
+
+          <AutoTextarea
+            value={value}
+            onChange={(v: string) =>
+              dispatch({ type: 'ANSWER', index: state.currentQuestion, value: v })
+            }
+            placeholder="Take your time…"
+          />
+
+          <div className="fa-hint">Tip: use voice-to-text for a more natural response</div>
+
+          <div className="fa-actions">
+            <button
+              className="fa-btn fa-btn-ghost"
+              onClick={() => dispatch({ type: 'BACK' })}
+              disabled={state.currentQuestion === 0}
+            >
+              ← Back
+            </button>
+            <span className="spacer" />
+            <button
+              className="fa-btn"
+              onClick={() => {
+                if (isLast) onComplete();
+                else dispatch({ type: 'NEXT' });
+              }}
+              disabled={!canAdvance}
+            >
+              {isLast ? 'Complete Audit' : 'Next →'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Generating({ error, onRetry }: any) {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (error) return;
+    const interval = setInterval(() => {
+      setIdx((i) => (i + 1) % GEN_MESSAGES.length);
     }, 3000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(interval);
+  }, [error]);
 
   return (
     <div className="fa-generating">
       <div className="fa-generating-inner">
-        <div className="fa-generating-spinner" />
-        <div className="fa-generating-text">{GEN_MESSAGES[msgIndex]}</div>
+        <div className="fa-orb" />
+        {error ? (
+          <>
+            <div className="fa-gen-title">Something didn't land.</div>
+            <div className="fa-gen-sub">Try again</div>
+            <div className="fa-error">
+              <div className="title">Generation Error</div>
+              <div className="body">{error}</div>
+              <button className="fa-btn" onClick={onRetry}>Retry</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="fa-gen-title">{GEN_MESSAGES[idx]}</div>
+            <div className="fa-gen-sub">One moment</div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function Report({ report, clientName, onRestart }: any) {
-  const handleDownload = async () => {
-    try {
-      const res = await fetch('/api/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, clientName }),
-      });
-      if (!res.ok) throw new Error('PDF generation failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `freedom-audit-${clientName.replace(/\s+/g, '-').toLowerCase()}.pdf`;
-      a.click();
-    } catch (err) {
-      alert('Failed to generate PDF');
-    }
-  };
+function Paragraphs({ text }: { text: string }) {
+  if (!text) return null;
+  const chunks = String(text)
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (chunks.length === 0) return <p>{String(text)}</p>;
+  return (
+    <>
+      {chunks.map((c, i) => (
+        <p key={i}>{c}</p>
+      ))}
+    </>
+  );
+}
+
+function GapVisual({ vision, reality }: { vision: string; reality: string }) {
+  const v = Number(vision);
+  const r = Number(reality);
+  const gap = Math.max(0, v - r);
+  const visionPct = Math.max(0, Math.min(100, (v / 10) * 100));
+  const realityPct = Math.max(0, Math.min(100, (r / 10) * 100));
+  const [leftPct, rightPct] =
+    realityPct <= visionPct ? [realityPct, visionPct] : [visionPct, realityPct];
 
   return (
-    <div className="fa-report">
-      <div className="fa-report-inner">
-        <div className="fa-report-header">
-          <h1>Your Freedom Audit</h1>
-          <p className="fa-report-subtitle">
-            {clientName} · {new Date().toLocaleDateString()}
-          </p>
+    <div className="fa-gap-visual">
+      <div className="fa-gap-grid">
+        <div className="fa-gap-cell">
+          <div className="label">Your Vision</div>
+          <div className="value">{v.toFixed(1)}</div>
         </div>
+        <div className="fa-gap-cell primary">
+          <div className="label">The Gap</div>
+          <div className="value">{gap.toFixed(1)}</div>
+        </div>
+        <div className="fa-gap-cell">
+          <div className="label">Your Reality</div>
+          <div className="value">{r.toFixed(1)}</div>
+        </div>
+      </div>
 
-        {report.metatype && (
-          <div className="fa-report-section">
-            <h2>Your Metatype</h2>
-            <Paragraphs text={report.metatype} />
+      <div className="fa-gap-bar-wrap">
+        <div className="fa-gap-bar">
+          <div
+            className="fa-gap-bar-fill"
+            style={{ left: `${leftPct}%`, width: `${Math.max(0, rightPct - leftPct)}%` }}
+          />
+          <div className="fa-gap-bar-reality" style={{ left: `${realityPct}%` }} />
+          <div className="fa-gap-bar-marker-label" style={{ left: `${realityPct}%` }}>
+            Reality
+          </div>
+          <div className="fa-gap-bar-vision" style={{ left: `${visionPct}%` }} />
+          <div className="fa-gap-bar-marker-label" style={{ left: `${visionPct}%`, top: 44 }}>
+            Vision
+          </div>
+        </div>
+        <div className="fa-gap-scale">
+          <span>0</span>
+          <span>5</span>
+          <span>10</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabPanel({ id, report }: any) {
+  switch (id) {
+    case 'metatype':
+      return (
+        <div className="fa-tab-panel">
+          <div className="metatype-title">{report.metatype_name}</div>
+          <Paragraphs text={report.metatype_description} />
+        </div>
+      );
+    case 'health':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Freedom of Health</h2>
+          <Paragraphs text={report.pillar_health} />
+        </div>
+      );
+    case 'relationships':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Freedom of Relationships</h2>
+          <Paragraphs text={report.pillar_relationships} />
+        </div>
+      );
+    case 'time':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Freedom of Time</h2>
+          <Paragraphs text={report.pillar_time} />
+        </div>
+      );
+    case 'mind':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Freedom of Mind</h2>
+          <Paragraphs text={report.pillar_mind} />
+        </div>
+      );
+    case 'soul':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Freedom of Soul</h2>
+          <Paragraphs text={report.pillar_soul} />
+        </div>
+      );
+    case 'finances':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Financial Foundation</h2>
+          <Paragraphs text={report.pillar_finances} />
+        </div>
+      );
+    case 'inner':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Your Inner State</h2>
+          <Paragraphs text={report.inner_state} />
+          <div className="fa-divider" />
+          <Paragraphs text={report.patterns} />
+        </div>
+      );
+    case 'gap':
+      return (
+        <div className="fa-tab-panel">
+          <h2>The Gap</h2>
+          <GapVisual
+            vision={report.alignment_score_vision}
+            reality={report.alignment_score_reality}
+          />
+          <Paragraphs text={report.the_gap_narrative} />
+        </div>
+      );
+    case 'strategy':
+      return (
+        <div className="fa-tab-panel">
+          <h2>Your Strategy</h2>
+          <Paragraphs text={report.strategy} />
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+function Report({ clientName, report, onRestart }: any) {
+  const [active, setActive] = useState('metatype');
+  const [emailStatus, setEmailStatus] = useState<'sending' | 'sent' | 'error' | null>(null);
+
+  const handleDownload = () => {
+    // Create HTML content for download
+    const htmlContent = generateReportHTML(clientName, report);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `freedom-audit-${clientName.toLowerCase().replace(/\s+/g, '-')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateReportHTML = (name: string, rpt: any) => {
+    const vision = Number(rpt.alignment_score_vision) || 0;
+    const reality = Number(rpt.alignment_score_reality) || 0;
+    const gap = Math.max(0, vision - reality).toFixed(1);
+    
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Freedom Audit - ${name}</title>
+<style>* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Georgia, 'Times New Roman', serif; color: #1a1815; background: #fff; line-height: 1.8; padding: 80px 64px; max-width: 800px; margin: 0 auto; }
+.cover { text-align: center; padding: 120px 0; border-bottom: 2px solid #B87333; margin-bottom: 80px; }
+.eyebrow { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; letter-spacing: 2px; color: #B87333; margin-bottom: 40px; }
+h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
+.client-name { font-style: italic; font-size: 20px; color: #B87333; margin-top: 40px; }
+.date { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #655d52; margin-top: 20px; }
+.section { page-break-inside: avoid; margin-bottom: 80px; }
+.section-title { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; letter-spacing: 2px; color: #B87333; margin-bottom: 12px; }
+.section h2 { font-size: 32px; font-weight: 400; margin-bottom: 24px; }
+.metatype-name { font-style: italic; color: #B87333 !important; font-size: 36px !important; }
+.gap-scores { font-size: 13px; color: #655d52; text-align: center; margin-bottom: 32px; padding: 16px; background: #f7f2ea; border-radius: 4px; }
+.section-content p { font-size: 16px; line-height: 1.8; margin-bottom: 24px; }
+@media print { body { padding: 40px; } .section { page-break-before: always; } }</style></head><body>
+<div class="cover"><div class="eyebrow">THE FREEDOM AUDIT</div><h1>Your Report</h1>
+<div class="client-name">Prepared for ${name}</div><div class="date">${new Date().toLocaleDateString()}</div></div>
+<div class="section"><div class="section-title">YOUR METATYPE</div><h2 class="metatype-name">${rpt.metatype_name}</h2>
+<div class="section-content">${rpt.metatype_description.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FREEDOM OF HEALTH</div><h2>Freedom of Health</h2>
+<div class="section-content">${rpt.pillar_health.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FREEDOM OF RELATIONSHIPS</div><h2>Freedom of Relationships</h2>
+<div class="section-content">${rpt.pillar_relationships.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FREEDOM OF TIME</div><h2>Freedom of Time</h2>
+<div class="section-content">${rpt.pillar_time.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FREEDOM OF MIND</div><h2>Freedom of Mind</h2>
+<div class="section-content">${rpt.pillar_mind.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FREEDOM OF SOUL</div><h2>Freedom of Soul</h2>
+<div class="section-content">${rpt.pillar_soul.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">FINANCIAL FOUNDATION</div><h2>Financial Foundation</h2>
+<div class="section-content">${rpt.pillar_finances.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">YOUR INNER STATE</div><h2>Your Inner State</h2>
+<div class="section-content">${(rpt.inner_state + '\n\n' + rpt.patterns).split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">THE GAP</div><h2>The Gap</h2>
+<div class="gap-scores">Vision: ${vision.toFixed(1)} | Gap: ${gap} | Reality: ${reality.toFixed(1)}</div>
+<div class="section-content">${rpt.the_gap_narrative.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+<div class="section"><div class="section-title">YOUR STRATEGY</div><h2>Your Strategy</h2>
+<div class="section-content">${rpt.strategy.split(/\n{2,}/).map((p: string) => `<p>${p.trim()}</p>`).join('')}</div></div>
+</body></html>`;
+  };
+
+  const TABS = [
+    { id: 'metatype', label: 'Your Metatype' },
+    { id: 'health', label: 'Health' },
+    { id: 'relationships', label: 'Relationships' },
+    { id: 'time', label: 'Time' },
+    { id: 'mind', label: 'Mind' },
+    { id: 'soul', label: 'Soul' },
+    { id: 'finances', label: 'Finances' },
+    { id: 'inner', label: 'Inner State' },
+    { id: 'gap', label: 'The Gap' },
+    { id: 'strategy', label: 'Strategy' },
+  ];
+
+  return (
+    <div className="fa-shell">
+      <div className="fa-report-head">
+        <div className="eyebrow">The Freedom Audit</div>
+        <h1>Your Report</h1>
+        <div className="fa-rule" />
+        <div className="name">Prepared for {clientName}</div>
+      </div>
+
+      <div className="fa-tabs">
+        <div className="fa-tabs-scroll">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`fa-tab ${active === t.id ? 'active' : ''}`}
+              onClick={() => setActive(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <TabPanel id={active} report={report} />
+
+      <div className="fa-report-footer">
+        <div className="mark">End of Report · Unbreakable Wealth</div>
+        {emailStatus === 'sent' && (
+          <div style={{ color: '#10b981', marginBottom: '16px', textAlign: 'center' }}>
+            ✓ Report emailed successfully
           </div>
         )}
-
-        {report.vision && report.reality && (
-          <div className="fa-report-section">
-            <h2>Your Alignment Score</h2>
-            <GapVisual vision={report.vision} reality={report.reality} />
-            {report.gap_narrative && <Paragraphs text={report.gap_narrative} />}
+        {emailStatus === 'error' && (
+          <div style={{ color: '#ef4444', marginBottom: '16px', textAlign: 'center' }}>
+            Email delivery failed. You can still download your report below.
           </div>
         )}
+        <div className="actions">
+          <button className="fa-btn" onClick={handleDownload}>Download Report</button>
+          <button className="fa-btn fa-btn-ghost" onClick={onRestart}>Start Over</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {report.strategy && (
-          <div className="fa-report-section">
-            <h2>Your Strategy</h2>
-            <Paragraphs text={report.strategy} />
-          </div>
-        )}
-
-        <div className="fa-report-actions">
-          <button className="fa-btn" onClick={handleDownload}>
-            Download PDF
-          </button>
-          <button className="fa-btn-secondary" onClick={onRestart}>
-            Start New Assessment
-          </button>
+function ResumePrompt({ saved, onResume, onDiscard }: any) {
+  const name = saved.clientName || 'you';
+  return (
+    <div className="fa-welcome">
+      <div className="fa-welcome-inner">
+        <div className="fa-eyebrow">Welcome Back</div>
+        <h1>Resume where you left off</h1>
+        <div className="fa-rule" />
+        <p className="body">
+          You have a saved assessment for {name}. Continue where you left off, or start fresh.
+        </p>
+        <div className="fa-resume-actions">
+          <button className="fa-btn" onClick={onResume}>Resume Audit</button>
+          <button className="fa-btn fa-btn-ghost" onClick={onDiscard}>Start Fresh</button>
         </div>
       </div>
     </div>
