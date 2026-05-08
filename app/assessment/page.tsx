@@ -106,6 +106,25 @@ export default function FreedomAudit() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [resumePrompt, setResumePrompt] = useState<Partial<State> | null>(null);
 
+  // Auto-fill from landing page sessionStorage and skip welcome
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const userName = sessionStorage.getItem('userName');
+    const userEmail = sessionStorage.getItem('userEmail');
+    
+    if (userName && userEmail && !state.clientName && !state.clientEmail) {
+      // Auto-fill and start assessment
+      dispatch({ type: 'SET_NAME', value: userName });
+      dispatch({ type: 'SET_EMAIL', value: userEmail });
+      dispatch({ type: 'BEGIN' });
+      
+      // Clear sessionStorage after use
+      sessionStorage.removeItem('userName');
+      sessionStorage.removeItem('userEmail');
+    }
+  }, []);
+
   // Load saved state on mount
   useEffect(() => {
     if (!state.clientEmail) return;
