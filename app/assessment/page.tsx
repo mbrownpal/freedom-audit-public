@@ -724,20 +724,113 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
       <TabPanel id={active} report={report} />
 
       <div className="fa-report-footer">
-        <div className="mark">End of Report · Unbreakable Wealth</div>
-        {emailStatus === 'sent' && (
-          <div style={{ color: '#10b981', marginBottom: '16px', textAlign: 'center' }}>
-            ✓ Report emailed successfully
-          </div>
-        )}
-        {emailStatus === 'error' && (
-          <div style={{ color: '#ef4444', marginBottom: '16px', textAlign: 'center' }}>
-            Email delivery failed. You can still download your report below.
-          </div>
-        )}
-        <div className="actions">
-          <button className="fa-btn" onClick={handleDownload}>Download Report</button>
-          <button className="fa-btn fa-btn-ghost" onClick={onRestart}>Start Over</button>
+        <div className="fa-divider" style={{ borderTop: '1px solid rgba(184, 115, 51, 0.2)', marginTop: '48px' }} />
+        
+        <div style={{ marginTop: '40px' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 400, color: '#E8E0D4', marginBottom: '16px', textAlign: 'left' }}>
+            Ready to close The Gap?
+          </h2>
+          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '19px', color: '#C4BDB2', lineHeight: 1.8, textAlign: 'left' }}>
+            Book a free 30-minute strategy call with a coach to go over your results.
+          </p>
+        </div>
+
+        <div style={{ marginTop: '32px' }}>
+          <a 
+            href="https://berichnow.com/booking"
+            className="fa-btn"
+            style={{ 
+              display: 'inline-block',
+              textDecoration: 'none',
+              background: 'linear-gradient(135deg, #B87333 0%, #C4956A 100%)',
+              color: '#1a1815',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '12px',
+              textTransform: 'uppercase',
+              letterSpacing: '3px',
+              padding: '16px 48px',
+              borderRadius: '1px',
+              transition: 'transform 0.25s ease, box-shadow 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 14px 36px rgba(184, 115, 51, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            Book Now
+          </a>
+        </div>
+
+        <p style={{ 
+          fontFamily: "'JetBrains Mono', monospace", 
+          fontSize: '10px', 
+          color: 'rgba(160, 155, 145, 0.6)', 
+          marginTop: '12px',
+          textAlign: 'left'
+        }}>
+          Your assessment results will be shared with your coach prior to the call.
+        </p>
+
+        <div style={{ 
+          marginTop: '48px', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '32px',
+          flexWrap: 'wrap'
+        }}>
+          <button 
+            onClick={handleDownload}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              color: '#A09B91',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              cursor: 'pointer',
+              transition: 'color 0.25s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#B87333'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#A09B91'}
+          >
+            Download Report
+          </button>
+          <button 
+            onClick={onRestart}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              color: '#A09B91',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              cursor: 'pointer',
+              transition: 'color 0.25s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#B87333'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#A09B91'}
+          >
+            Start Over
+          </button>
+        </div>
+
+        <div style={{ 
+          marginTop: '64px', 
+          textAlign: 'center',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: 'rgba(160, 155, 145, 0.3)',
+          textTransform: 'uppercase',
+          letterSpacing: '2px',
+          marginBottom: '32px'
+        }}>
+          UNBREAKABLE WEALTH
         </div>
       </div>
     </div>
