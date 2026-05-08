@@ -2,7 +2,7 @@
 
 import { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import './styles.css';
+import './landing.css';
 
 export default function LandingPage() {
   const router = useRouter();
