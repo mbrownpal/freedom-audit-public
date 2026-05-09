@@ -26,6 +26,34 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
 
+    // Extract key fields from report (if complete)
+    let metatype_name = null;
+    let metatype_description = null;
+    let gap_score = null;
+    let vision_score = null;
+    let reality_score = null;
+    let lowest_pillar = null;
+
+    if (status === 'complete' && report) {
+      metatype_name = report.metatype_name || null;
+      metatype_description = report.metatype_description || null;
+      vision_score = parseFloat(report.alignment_score_vision) || null;
+      reality_score = parseFloat(report.alignment_score_reality) || null;
+      gap_score = vision_score && reality_score ? Math.max(0, vision_score - reality_score) : null;
+      
+      // Determine lowest pillar
+      const pillars = [
+        { name: 'Health', score: parseFloat(report.pillar_health) || 0 },
+        { name: 'Relationships', score: parseFloat(report.pillar_relationships) || 0 },
+        { name: 'Time', score: parseFloat(report.pillar_time) || 0 },
+        { name: 'Mind', score: parseFloat(report.pillar_mind) || 0 },
+        { name: 'Soul', score: parseFloat(report.pillar_soul) || 0 },
+        { name: 'Finances', score: parseFloat(report.pillar_finances) || 0 },
+      ];
+      const lowestPillar = pillars.reduce((min, p) => p.score < min.score ? p : min);
+      lowest_pillar = lowestPillar.name;
+    }
+
     const payload = {
       email,
       client_name: clientName,
@@ -33,7 +61,15 @@ export async function POST(req: NextRequest) {
       answers,
       report,
       status: status || 'in_progress',
-      ...(status === 'complete' && { completed_at: new Date().toISOString() }),
+      ...(status === 'complete' && { 
+        completed_at: new Date().toISOString(),
+        metatype_name,
+        metatype_description,
+        gap_score,
+        vision_score,
+        reality_score,
+        lowest_pillar,
+      }),
     };
 
     let result;
