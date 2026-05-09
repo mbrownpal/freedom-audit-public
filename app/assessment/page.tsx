@@ -203,28 +203,8 @@ export default function FreedomAudit() {
 
       dispatch({ type: 'REPORT_SUCCESS', report: data.report });
 
-      // Send email with error handling
-      try {
-        const emailResponse = await fetch('/api/send-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientName: state.clientName,
-            clientEmail: state.clientEmail,
-            report: data.report,
-            answers: answersArray,
-          }),
-        });
-        
-        if (emailResponse.ok) {
-          console.log('✅ Email sent successfully');
-        } else {
-          const errorData = await emailResponse.json().catch(() => ({}));
-          console.error('❌ Email send failed:', errorData);
-        }
-      } catch (emailError) {
-        console.error('❌ Email request failed:', emailError);
-      }
+      // Email is now sent only when user clicks "Book Now" button
+      // See /api/book-call route for email logic
     } catch (err) {
       console.error('[Generation] Error:', err);
       dispatch({
@@ -298,7 +278,9 @@ export default function FreedomAudit() {
       {!resumePrompt && state.mode === 'report' && state.report && (
         <Report
           clientName={state.clientName}
+          clientEmail={state.clientEmail}
           report={state.report}
+          answers={state.answers}
           onRestart={handleRestart}
         />
       )}
@@ -635,9 +617,34 @@ function TabPanel({ id, report }: any) {
   }
 }
 
-function Report({ clientName, report, onRestart }: any) {
+function Report({ clientName, clientEmail, report, answers, onRestart }: any) {
   const [active, setActive] = useState('metatype');
   const [emailStatus, setEmailStatus] = useState<'sending' | 'sent' | 'error' | null>(null);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
+
+  const handleBookCall = async () => {
+    setBookingInProgress(true);
+    
+    try {
+      // Tag in Kit as clicked-booking and send report to mike@mbrown.co
+      await fetch('/api/book-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: clientEmail,
+          name: clientName,
+          report,
+          answers,
+        }),
+      });
+    } catch (error) {
+      console.error('[Book Call] Error:', error);
+    } finally {
+      setBookingInProgress(false);
+      // Redirect to booking page
+      window.open('https://booking.berichnow.com', '_blank');
+    }
+  };
 
   const handleDownload = () => {
     // Create HTML content for download
@@ -751,12 +758,14 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
         </div>
 
         <div style={{ marginTop: '32px' }}>
-          <a 
-            href="https://booking.berichnow.com"
+          <button 
+            onClick={handleBookCall}
+            disabled={bookingInProgress}
             className="fa-btn"
             style={{ 
               display: 'inline-block',
-              textDecoration: 'none',
+              border: 'none',
+              cursor: bookingInProgress ? 'wait' : 'pointer',
               background: 'linear-gradient(135deg, #B87333 0%, #C4956A 100%)',
               color: '#1a1815',
               fontFamily: "'JetBrains Mono', monospace",
@@ -765,19 +774,22 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
               letterSpacing: '3px',
               padding: '16px 48px',
               borderRadius: '1px',
-              transition: 'transform 0.25s ease, box-shadow 0.3s ease'
+              transition: 'transform 0.25s ease, box-shadow 0.3s ease',
+              opacity: bookingInProgress ? 0.7 : 1
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 14px 36px rgba(184, 115, 51, 0.2)';
+              if (!bookingInProgress) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 14px 36px rgba(184, 115, 51, 0.2)';
+              }
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            Book Now
-          </a>
+            {bookingInProgress ? 'Opening...' : 'Book Now'}
+          </button>
         </div>
 
         <p style={{ 
