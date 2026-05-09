@@ -737,7 +737,7 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
 
         <div style={{ marginTop: '32px' }}>
           <a 
-            href="https://berichnow.com/booking"
+            href="https://booking.berichnow.com"
             className="fa-btn"
             style={{ 
               display: 'inline-block',
