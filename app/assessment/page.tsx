@@ -125,6 +125,21 @@ export default function FreedomAudit() {
     }
   }, []);
 
+  // Tag subscriber in Kit when assessment begins
+  useEffect(() => {
+    if (state.mode !== 'assessment' || !state.clientEmail || !state.clientName) return;
+    
+    // Tag subscriber with freedom-audit tag
+    fetch('/api/tag-subscriber', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: state.clientEmail,
+        name: state.clientName 
+      }),
+    }).catch(console.error); // Silent fail - don't block assessment
+  }, [state.mode, state.clientEmail, state.clientName]);
+
   // Load saved state on mount
   useEffect(() => {
     if (!state.clientEmail) return;
