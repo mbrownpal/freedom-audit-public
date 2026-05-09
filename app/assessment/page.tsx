@@ -724,9 +724,9 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
       <TabPanel id={active} report={report} />
 
       <div className="fa-report-footer">
-        <div className="fa-divider" style={{ borderTop: '1px solid rgba(184, 115, 51, 0.2)', marginTop: '48px' }} />
+        <div className="fa-divider" style={{ borderTop: '1px solid rgba(184, 115, 51, 0.2)', marginTop: '32px' }} />
         
-        <div style={{ marginTop: '40px' }}>
+        <div style={{ marginTop: '32px' }}>
           <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 400, color: '#E8E0D4', marginBottom: '16px', textAlign: 'left' }}>
             Ready to close The Gap?
           </h2>
