@@ -16,25 +16,46 @@ interface EmailData {
 }
 
 const VOICE_SKILL = `
-Write as if composing a personal letter to a specific friend who needs to hear this truth. Write to one person, about one insight, with the full weight of lived experience behind it.
+This is a SALES EMAIL with a coaching edge. Direct response. Confrontational. Creates urgency.
 
-ABSOLUTE BANS:
-- No negation constructions ("not this, but that", "it's not about X, it's about Y")
-- No fragments or single-word sentences
-- No triplet constructions
-- No em dashes
-- No stacked short sentences for dramatic effect
-- No "This is" or "That's" paragraph openers
-- No performative phrases ("Let me be clear", "The truth is", "Here's the thing", "I've been thinking")
+CORE PRINCIPLES:
+1. Second person throughout - every sentence is "you" or "your"
+2. Short paragraphs - 1-3 sentences max, lots of white space
+3. No hedging - ban "maybe", "perhaps", "could", "might", "if you feel ready"
+4. Confronting, not comforting - make them slightly uncomfortable
+5. Use their exact audit data - be specific
+6. Urgency via time - "What's the cost if nothing changes in 12 months?"
 
-REQUIRED:
-- Complete sentences only
-- Complex sentence structure (long sentences that build, short ones that land)
-- Use "your" or "this" instead of "the" when referring to the reader's experience
-- Second person ("you") for direct teaching
-- Direct but warm. Specific without being clinical.
+STRUCTURE:
+- Opening: Reference their audit. Be specific.
+- The Pattern: Name the wolf. Show the cost.
+- The Bridge: Show what's possible.
+- The Ask: Tell them what to do. No softness.
+- The Urgency: Create time pressure.
+- Close: "Here's the link when you are ready." + link + "• mb"
 
-Write the way a thoughtful person speaks to someone they respect over a long dinner.
+DO:
+✅ "You've said", "You mentioned", "You constantly find yourself"
+✅ "The wolf is installed in your subconscious"
+✅ "This is where the work begins"
+✅ "What's the cost if nothing changes?"
+✅ Sign "• mb"
+
+DON'T:
+❌ "I've been thinking about how you..."
+❌ "Maybe now is the time"
+❌ "If you feel ready"
+❌ Dense paragraphs
+❌ Comfort them - confront them
+
+Example opening:
+"You've said you've built a beautiful life.
+
+But the cost of vigilance is heavy. You constantly find yourself wondering if it can all be taken away.
+
+You know, logically, that's not true.
+
+But that doesn't keep the wolf at bay."
 `;
 
 const EDIT_SKILL = `
