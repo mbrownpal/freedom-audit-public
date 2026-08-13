@@ -83,6 +83,7 @@ export default function LandingPage() {
         <p className="fade">The answers may be uncomfortable.</p>
         <p className="fade lift">But once you see the architecture underneath the game, the game changes entirely.</p>
         <p className="fade aside" style={{marginTop: '32px'}}>The entire process takes 30–45 minutes. Radical self-honesty required.</p>
+        <p className="fade aside" style={{marginTop: '8px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#A09B91', letterSpacing: '1px', textTransform: 'uppercase'}}>Built on 600+ hours of live coaching. No paywall, just results.</p>
         <p className="fade aside">For best results, use voice-to-text to speak your answers out loud. Don't edit. Just be real.</p>
       </section>
 
