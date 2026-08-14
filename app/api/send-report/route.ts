@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     // Send beautiful HTML email to client
     await resend.emails.send({
-      from: 'Freedom Audit <audit@unbreakablewealth.com>',
+      from: 'Freedom Audit <audit@mbrown.co>',
       replyTo: 'mike@mbrown.co',
       to: clientEmail,
       subject: `Your Freedom Audit Report - ${clientName}`,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
 
     // Send beautiful HTML report to admin (you)
     await resend.emails.send({
-      from: 'Freedom Audit <audit@unbreakablewealth.com>',
+      from: 'Freedom Audit <audit@mbrown.co>',
       to: 'mike@mbrown.co',
       subject: `Freedom Audit Report - ${clientName} (Your Copy)`,
       html: reportHTML,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     // Send raw answers to admin
     await resend.emails.send({
-      from: 'Freedom Audit <audit@unbreakablewealth.com>',
+      from: 'Freedom Audit <audit@mbrown.co>',
       to: 'mike@mbrown.co',
       subject: `Freedom Audit Raw Answers - ${clientName}`,
       html: `
