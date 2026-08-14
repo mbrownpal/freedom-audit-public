@@ -18,13 +18,14 @@ export async function POST(req: NextRequest) {
     );
 
     // Check if assessment exists for this email
-    const { data: existing } = await supabase
+    const { data: existingRows } = await supabase
       .from('assessments')
       .select('id')
       .eq('email', email)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+    
+    const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
     // Extract key fields from report (if complete)
     let metatype_name = null;
