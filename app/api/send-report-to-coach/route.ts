@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Increase timeout for email API calls
+export const maxDuration = 30; // seconds
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -103,81 +100,40 @@ function generateEmailHTML(clientName: string, report: Report): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, name, report, answers } = await req.json();
+    const { clientName, clientEmail, report, answers } = await req.json();
 
-    if (!email || !name) {
+    if (!clientName || !clientEmail || !report) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Update Supabase: clicked_booking = true
-    try {
-      const { error: dbError } = await supabase
-        .from('assessments')
-        .update({ clicked_booking: true })
-        .eq('email', email)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    const reportHTML = generateEmailHTML(clientName, report);
 
-      if (dbError) {
-        console.error('[book-call] Supabase update error:', dbError);
-      }
-    } catch (dbError) {
-      console.error('[book-call] Supabase error:', dbError);
-    }
+    // Send beautiful HTML report to admin (coach)
+    await resend.emails.send({
+      from: 'Freedom Audit <audit@mbrown.co>',
+      to: 'mike@mbrown.co',
+      subject: `Freedom Audit Report - ${clientName} (Coach Copy)`,
+      html: reportHTML,
+    });
 
-    // 2. Tag in Kit as "clicked-booking"
-    try {
-      await fetch('https://api.kit.com/v4/subscribers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Kit-Api-Key': process.env.KIT_API_SECRET!,
-        },
-        body: JSON.stringify({
-          email_address: email,
-          first_name: name,
-          tags: ['clicked-booking'],
-        }),
-      });
-    } catch (kitError) {
-      console.error('[book-call] Kit tagging error:', kitError);
-    }
-
-    // 3. Send report + answers to coach (mike@mbrown.co)
-    if (report && answers) {
-      try {
-        const reportHTML = generateEmailHTML(name, report);
-
-        // Send report to coach
-        await resend.emails.send({
-          from: 'Freedom Audit <audit@mbrown.co>',
-          to: 'mike@mbrown.co',
-          subject: `Freedom Audit - ${name} clicked Book a Call`,
-          html: reportHTML,
-        });
-
-        // Send raw answers to coach
-        await resend.emails.send({
-          from: 'Freedom Audit <audit@mbrown.co>',
-          to: 'mike@mbrown.co',
-          subject: `Freedom Audit Raw Answers - ${name}`,
-          html: `
-            <p><strong>${name} (${email}) clicked Book a Call</strong></p>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <hr/>
-            <pre>${JSON.stringify(answers, null, 2)}</pre>
-          `,
-        });
-      } catch (emailError) {
-        console.error('[book-call] Email send error:', emailError);
-      }
-    }
+    // Send raw answers to admin
+    await resend.emails.send({
+      from: 'Freedom Audit <audit@mbrown.co>',
+      to: 'mike@mbrown.co',
+      subject: `Freedom Audit Raw Answers - ${clientName}`,
+      html: `
+        <p><strong>New Freedom Audit completed by:</strong> ${clientName} (${clientEmail})</p>
+        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
+        <hr/>
+        <pre>${JSON.stringify(answers, null, 2)}</pre>
+      `,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[book-call] Error:', error);
+    console.error('[send-report-to-coach] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to process booking click', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to send report', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

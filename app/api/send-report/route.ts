@@ -108,34 +108,13 @@ export async function POST(req: NextRequest) {
 
     const reportHTML = generateEmailHTML(clientName, report);
 
-    // Send beautiful HTML email to client
+    // Send beautiful HTML email to client only
     await resend.emails.send({
       from: 'Freedom Audit <audit@mbrown.co>',
       replyTo: 'mike@mbrown.co',
       to: clientEmail,
       subject: `Your Freedom Audit Report - ${clientName}`,
       html: reportHTML,
-    });
-
-    // Send beautiful HTML report to admin (you)
-    await resend.emails.send({
-      from: 'Freedom Audit <audit@mbrown.co>',
-      to: 'mike@mbrown.co',
-      subject: `Freedom Audit Report - ${clientName} (Your Copy)`,
-      html: reportHTML,
-    });
-
-    // Send raw answers to admin
-    await resend.emails.send({
-      from: 'Freedom Audit <audit@mbrown.co>',
-      to: 'mike@mbrown.co',
-      subject: `Freedom Audit Raw Answers - ${clientName}`,
-      html: `
-        <p><strong>New Freedom Audit completed by:</strong> ${clientName} (${clientEmail})</p>
-        <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-        <hr/>
-        <pre>${JSON.stringify(answers, null, 2)}</pre>
-      `,
     });
 
     return NextResponse.json({ success: true });

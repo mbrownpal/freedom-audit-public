@@ -203,8 +203,22 @@ export default function FreedomAudit() {
 
       dispatch({ type: 'REPORT_SUCCESS', report: data.report });
 
-      // Email is now sent only when user clicks "Book Now" button
-      // See /api/book-call route for email logic
+      // Send report to user immediately
+      try {
+        await fetch('/api/send-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName: state.clientName,
+            clientEmail: state.clientEmail,
+            report: data.report,
+            answers: answersArray,
+          }),
+        });
+      } catch (emailError) {
+        console.error('[Email] Error sending report to user:', emailError);
+        // Don't fail the whole flow if email fails
+      }
     } catch (err) {
       console.error('[Generation] Error:', err);
       dispatch({
