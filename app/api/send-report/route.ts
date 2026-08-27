@@ -117,6 +117,27 @@ export async function POST(req: NextRequest) {
       html: reportHTML,
     });
 
+    // Tag in Kit (backup - also done in /api/assessment/save)
+    if (process.env.KIT_API_SECRET) {
+      try {
+        await fetch('https://api.kit.com/v4/subscribers', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Kit-Api-Key': process.env.KIT_API_SECRET,
+          },
+          body: JSON.stringify({
+            email_address: clientEmail,
+            first_name: clientName,
+            tags: ['freedom-audit-complete'],
+          }),
+        });
+      } catch (kitError) {
+        console.error('[send-report] Kit tagging error:', kitError);
+        // Don't fail the whole send if Kit fails
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[send-report] Error:', error);
