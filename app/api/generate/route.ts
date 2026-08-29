@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { selectBestModel } from '@/app/lib/model-selector';
 
 // Increase function timeout for long-running LLM calls
 export const maxDuration = 120; // seconds (Pro plan supports up to 300)
@@ -77,8 +78,12 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
+    // Automatically select the best available model
+    const model = await selectBestModel(process.env.ANTHROPIC_API_KEY);
+    console.log(`[Generate API] Using model: ${model}`);
+
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model,
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       messages: [
