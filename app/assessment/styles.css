@@ -376,6 +376,16 @@ html, body { background: var(--bg); margin: 0; padding: 0; }
   color: var(--text-muted);
 }
 
+.fa-gen-note {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 24px;
+  opacity: 0.7;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
 .fa-error {
   margin-top: 36px;
   background: var(--card);

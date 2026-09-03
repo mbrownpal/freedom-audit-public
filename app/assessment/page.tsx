@@ -503,6 +503,7 @@ function Generating({ error, onRetry }: any) {
           <>
             <div className="fa-gen-title">{GEN_MESSAGES[idx]}</div>
             <div className="fa-gen-sub">One moment</div>
+            <div className="fa-gen-note">This can take up to two minutes. Please don't refresh your browser.</div>
           </>
         )}
       </div>
