@@ -186,12 +186,15 @@ export default function FreedomAudit() {
   }, [state.answers, state.currentQuestion, state.mode, state.report]);
 
   const runGeneration = useCallback(async () => {
+    console.log('[runGeneration] Starting generation...');
     try {
       const answersArray = QUESTIONS.map((q, i) => ({
         section: q.section,
         question: q.question,
         answer: state.answers[i] || '',
       }));
+
+      console.log('[runGeneration] Answers prepared, calling API...');
 
       // Set 3-minute timeout for generation (API takes 60-90 seconds)
       const controller = new AbortController();
@@ -209,12 +212,15 @@ export default function FreedomAudit() {
       
       clearTimeout(timeoutId);
 
+      console.log('[runGeneration] API responded:', res.status);
       const data = await res.json();
+      console.log('[runGeneration] Data received:', data ? 'yes' : 'no', 'Has report:', !!data.report);
 
       if (!res.ok) {
         throw new Error(data.error || 'Generation failed');
       }
 
+      console.log('[runGeneration] Dispatching REPORT_SUCCESS');
       dispatch({ type: 'REPORT_SUCCESS', report: data.report });
 
       // Send report to user immediately
