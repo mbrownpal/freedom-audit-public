@@ -793,10 +793,10 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
         <div className="fa-divider" style={{ borderTop: '1px solid rgba(184, 115, 51, 0.2)', marginTop: '32px' }} />
         
         <div style={{ marginTop: '32px' }}>
-          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 400, color: '#E8E0D4', marginBottom: '16px', textAlign: 'left' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 400, color: '#E8E0D4', marginBottom: '16px', textAlign: 'center' }}>
             Ready to close The Gap?
           </h2>
-          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '19px', color: '#C4BDB2', lineHeight: 1.8, textAlign: 'left' }}>
+          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '19px', color: '#C4BDB2', lineHeight: 1.8, textAlign: 'center' }}>
             Book a free 30-minute strategy call with a coach to go over your results.
           </p>
         </div>
@@ -841,7 +841,7 @@ h1 { font-size: 56px; font-weight: 400; margin-bottom: 20px; }
           fontSize: '10px', 
           color: 'rgba(160, 155, 145, 0.6)', 
           marginTop: '12px',
-          textAlign: 'left'
+          textAlign: 'center'
         }}>
           Your assessment results will be shared with your coach prior to the call.
         </p>
