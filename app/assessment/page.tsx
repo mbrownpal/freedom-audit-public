@@ -193,6 +193,10 @@ export default function FreedomAudit() {
         answer: state.answers[i] || '',
       }));
 
+      // Set 3-minute timeout for generation (API takes 60-90 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
+
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -200,7 +204,10 @@ export default function FreedomAudit() {
           clientName: state.clientName,
           answers: answersArray,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -228,10 +235,19 @@ export default function FreedomAudit() {
       }
     } catch (err) {
       console.error('[Generation] Error:', err);
-      dispatch({
-        type: 'REPORT_ERROR',
-        error: err instanceof Error ? err.message : 'Unknown error',
-      });
+      
+      // Handle timeout separately
+      if (err instanceof Error && err.name === 'AbortError') {
+        dispatch({
+          type: 'REPORT_ERROR',
+          error: 'Generation timed out. Please try again or contact support if this persists.',
+        });
+      } else {
+        dispatch({
+          type: 'REPORT_ERROR',
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
     }
   }, [state.clientName, state.clientEmail, state.answers]);
 
