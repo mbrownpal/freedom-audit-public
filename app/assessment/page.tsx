@@ -158,9 +158,11 @@ export default function FreedomAudit() {
       .catch(console.error);
   }, [state.clientEmail]);
 
-  // Auto-save
+  // Auto-save (debounced) - only save on answer changes, not name/email keystrokes
   useEffect(() => {
     if (state.mode === 'generating' || !state.clientEmail) return;
+    // Don't auto-save if we're still in welcome mode (no answers yet)
+    if (state.mode === 'welcome') return;
 
     const saveData = {
       email: state.clientEmail,
@@ -171,12 +173,17 @@ export default function FreedomAudit() {
       status: state.mode === 'report' ? 'complete' : 'in_progress',
     };
 
-    fetch('/api/assessment/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(saveData),
-    }).catch(console.error);
-  }, [state, state.mode]);
+    // Debounce: wait 1 second before saving
+    const timeout = setTimeout(() => {
+      fetch('/api/assessment/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saveData),
+      }).catch(console.error);
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [state.answers, state.currentQuestion, state.mode, state.report]);
 
   const runGeneration = useCallback(async () => {
     try {
